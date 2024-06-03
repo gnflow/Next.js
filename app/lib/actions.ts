@@ -6,15 +6,28 @@ import { redirect } from 'next/navigation';
 
 const FormSchema = z.object({
     id: z.string(),
-    customerId: z.string(),
-    amount: z.coerce.number(),
-    status: z.enum(['pending', 'paid']),
+    customerId: z.string({
+      invalid_type_error: 'Please select a customer.',
+    }),
+    amount: z.coerce.number()
+    .gt(0, { message: 'Please enter an amount greater than $0.' }),
+    status: z.enum(['pending', 'paid'], {
+      invalid_type_error: 'Please select an invoice status.',
+    }),
     date: z.string(),
   });
    
 const CreateInvoice = FormSchema.omit({ id: true, date: true });
- 
-export async function createInvoice(formData: FormData) {
+// This is temporary until @types/react-dom is updated
+export type State = {
+  errors?: {
+    customerId?: string[];
+    amount?: string[];
+    status?: string[];
+  };
+  message?: string | null;
+};
+export async function createInvoice(prevState: State, formData: FormData) {
   //   const rawFormData = {
   //     customerId: formData.get('customerId'),
   //     amount: formData.get('amount'),
@@ -23,17 +36,30 @@ export async function createInvoice(formData: FormData) {
   // Test it out:
   // console.log(rawFormData);
   // console.log(typeof rawFormData.amount);
-  const { customerId, amount, status } = CreateInvoice.parse({
+  // Validate form fields using Zod by transforming .parse into .safeParse
+  // const { customerId, amount, status } 
+  const validatedFields = CreateInvoice.safeParse({
     customerId: formData.get('customerId'),
     amount: formData.get('amount'),
     status: formData.get('status'),
   });
 
+  // If form validation fails, return errors early. Otherwise, continue.
+  if (!validatedFields.success) {
+    // console.log(`:::: validatedFields result:`,validatedFields);
+    
+    return {
+      errors: validatedFields.error.flatten().fieldErrors,
+      message: 'Missing Fields. Failed to Create Invoice.',
+    };
+  }
+  const { customerId, amount, status } = validatedFields.data;
+  // console.log(`:::: validatedFields result:`,validatedFields);
+
   // It's usually good practice to store monetary values in cents in your database 
   // to eliminate JavaScript floating-point errors and ensure greater accuracy.
   // Let's convert amount into cents..
-
-  const amountInCents = amount * 100;
+    const amountInCents = amount * 100;
   // create a new date with the format "YYYY-MM-DD" for the invoice's creation date
   const date = new Date().toISOString().split('T')[0];
 
@@ -95,14 +121,14 @@ export async function updateInvoice(id: string, formData: FormData) {
 }
 
 export async function deleteInvoice(id: string) {
-  throw new Error('ERROR FAKED - Failed to Delete Invoice');
+  //throw new Error('ERROR FAKED - Failed to Delete Invoice');
   try{
     await sql`DELETE FROM invoices WHERE id = ${id}`;
+    revalidatePath('/dashboard/invoices');
   }catch(error){
     console.log(error);
     return {
       message: 'Database Error: Failed to Delete Invoice.',
     };
   }
-  revalidatePath('/dashboard/invoices');
 }
