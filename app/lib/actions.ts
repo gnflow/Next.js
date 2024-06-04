@@ -19,7 +19,7 @@ const FormSchema = z.object({
    
 const CreateInvoice = FormSchema.omit({ id: true, date: true });
 // This is temporary until @types/react-dom is updated
-export type State = {
+export type InvoiceState = {
   errors?: {
     customerId?: string[];
     amount?: string[];
@@ -27,7 +27,17 @@ export type State = {
   };
   message?: string | null;
 };
-export async function createInvoice(prevState: State, formData: FormData) {
+// This is temporary until @types/react-dom is updated
+export type State = {
+  errors?: {
+    id?: string[];
+    customerId?: string[];
+    amount?: string[];
+    status?: string[];
+  };
+  message?: string | null;
+};
+export async function createInvoice(prevState: InvoiceState, formData: FormData) {
   //   const rawFormData = {
   //     customerId: formData.get('customerId'),
   //     amount: formData.get('amount'),
@@ -94,12 +104,24 @@ const UpdateInvoice = FormSchema.omit({ id: true, date: true });
  
 // ...
  
-export async function updateInvoice(id: string, formData: FormData) {
-  const { customerId, amount, status } = UpdateInvoice.parse({
+export async function updateInvoice(id: string,prevState: InvoiceState, formData: FormData) {
+  const validatedFields = UpdateInvoice.safeParse({
     customerId: formData.get('customerId'),
     amount: formData.get('amount'),
     status: formData.get('status'),
   });
+
+  // If form validation fails, return errors early. Otherwise, continue.
+  if (!validatedFields.success) {
+    // console.log(`:::: validatedFields result:`,validatedFields);
+    
+    return {
+      errors: validatedFields.error.flatten().fieldErrors,
+      message: 'Missing Fields. Failed to Create Invoice.',
+    };
+  }
+  const { customerId, amount, status } = validatedFields.data;
+  // console.log(`:::: validatedFields result:`,validatedFields)
  
   const amountInCents = amount * 100;
 
