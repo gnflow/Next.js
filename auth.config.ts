@@ -6,6 +6,9 @@ export const authConfig = {
   },
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
+      //  !! & ?. => is a concise way to check if a user is logged in by ensuring
+      // that auth is defined and auth.user is a truthy value, then 
+      // explicitly converting that check to a boolean value.
       const isLoggedIn = !!auth?.user;
       const isOnDashboard = nextUrl.pathname.startsWith('/dashboard');
       if (isOnDashboard) {
@@ -19,4 +22,3 @@ export const authConfig = {
   },
   providers: [], // Add providers with an empty array for now
 } satisfies NextAuthConfig;
-};
